@@ -6,14 +6,14 @@ are wrapped in a mixer class before being used in the drive loop.
 
 import time
 import donkeycar as dk
-
+import RPi.GPIO as GPIO
 
 class PCA9685:
     """
     PWM motor controler using PCA9685 boards.
     This is used for most RC Cars
     """
-    def __init__(self, channel, frequency=60):
+    def __init__(self, channel, frequency=50):
         import Adafruit_PCA9685
         # Initialise the PCA9685 using the default address (0x40).
         self.pwm = Adafruit_PCA9685.PCA9685()
@@ -95,6 +95,49 @@ class PWMThrottle:
 
     def shutdown(self):
         self.run(0)  # stop vehicle
+
+
+class TA7291P:
+
+    MIN_THROTTLE = -1
+    MAX_THROTTLE = 1
+
+    def __init__(self):
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(18, GPIO.OUT)
+        GPIO.setup(23, GPIO.OUT)
+        GPIO.setup(24, GPIO.OUT)
+
+        GPIO.output(23, GPIO.HIGH)
+        GPIO.output(24, GPIO.HIGH)
+
+        self.pwm = GPIO.PWM(18, 50) # GPIO 18(pin 12), pwm frequency = 50Hz
+        self.pwm.start(0)
+
+    def run(self, throttle):
+        in1 = GPIO.HIGH
+        in2 = GPIO.HIGH
+        duty = 0
+        if throttle > 0:
+            in1 = GPIO.HIGH
+            in2 = GPIO.LOW
+            duty = dk.util.data.map_range(throttle,
+                                           0, self.MAX_THROTTLE,
+                                           0, 100)
+        elif throttle < 0:
+            in1 = GPIO.LOW
+            in2 = GPIO.HIGH
+            duty = dk.util.data.map_range(throttle,
+                                           self.MIN_THROTTLE, 0,
+                                           100, 0)
+
+        GPIO.output(23, in1)
+        GPIO.output(24, in2)
+        self.pwm.ChangeDutyCycle(duty)            
+
+    def shutdown(self):
+        self.run(0)  # stop vehicle
+#        GPIO.cleanup()
 
 
 class Adafruit_DCMotor_Hat:
